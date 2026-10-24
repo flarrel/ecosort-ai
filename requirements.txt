@@ -1,0 +1,10 @@
+# Milestone 1 — ML training environment (macOS)
+# Install inside a virtual environment: pip install -r requirements.txt
+
+tensorflow>=2.16.0
+numpy>=1.26.0
+pandas>=2.2.0
+matplotlib>=3.8.0
+scikit-learn>=1.4.0
+Pillow>=10.0.0
+jupyter>=1.0.0
