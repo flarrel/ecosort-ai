@@ -2,7 +2,7 @@
 
 A small university / portfolio project for **waste image classification**.
 
-This repository currently covers **Milestone 1**: a Python machine-learning environment and a baseline notebook that loads and previews the dataset. Training, API, UI, and deployment come later.
+This repository currently covers **Milestone 2**: load the TrashNet images, train a small MobileNetV2 transfer-learning baseline, evaluate it, and save the model. API, UI, and deployment come later.
 
 ## Requirements
 
@@ -35,17 +35,16 @@ deactivate
 
 Put your images under `data/raw/`, **one folder per class**. Keras will treat each folder name as a class label.
 
-Example:
+TrashNet uses these 6 class folders:
 
 ```text
 data/raw/
-  plastic/
-    bottle1.jpg
-    bottle2.jpg
+  cardboard/
+  glass/
+  metal/
   paper/
-    newspaper1.jpg
-  organic/
-    banana_peel1.jpg
+  plastic/
+  trash/
 ```
 
 Do **not** put images directly in `data/raw/` (they must sit inside class folders).
@@ -62,9 +61,10 @@ jupyter notebook notebooks/01_baseline.ipynb
 
 The notebook:
 
-- loads images from `data/raw/`
-- resizes them to 224×224
+- loads images from `data/raw/` and resizes them to 224×224
 - splits them into training and validation sets
-- prints class names, shows example images, and prints batch counts
+- trains a frozen **MobileNetV2** (ImageNet) model with a small 6-class head
+- plots accuracy/loss, prints a confusion matrix and classification report
+- saves the model to `model/ecosort_baseline.keras`
 
-It does **not** train a model yet.
+First-time training will download ImageNet weights for MobileNetV2 (needs internet). A few epochs is enough for a baseline; expect several minutes on a Mac.
