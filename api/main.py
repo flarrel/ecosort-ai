@@ -1,16 +1,19 @@
-"""EcoSort AI inference API (Milestone 3).
+"""EcoSort AI inference API.
 
 Run from the project root:
     uvicorn api.main:app --reload
 """
 
+from contextlib import asynccontextmanager
 from io import BytesIO
 from pathlib import Path
 
 import numpy as np
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from PIL import Image, UnidentifiedImageError
 from tensorflow import keras
+
+from api import database
 
 # Same order as Keras image_dataset_from_directory / train_ds.class_names
 # in notebooks/01_baseline.ipynb (alphabetical folder names).
@@ -21,9 +24,18 @@ IMAGE_SIZE = (224, 224)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MODEL_PATH = PROJECT_ROOT / "model" / "ecosort_baseline.keras"
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Create the SQLite database when the API starts."""
+    database.initialize_database()
+    yield
+
+
 app = FastAPI(
     title="EcoSort AI",
     description="Upload a waste image and get a TrashNet class prediction.",
+    lifespan=lifespan,
 )
 
 # Filled on first prediction (tests can also set this to a fake model).
@@ -98,8 +110,31 @@ async def predict(file: UploadFile = File(...)):
         for class_name, score in zip(CLASS_NAMES, probabilities)
     }
 
+    database.save_prediction(
+        filename=file.filename or "unknown",
+        predicted_class=predicted_class,
+        confidence=confidence,
+    )
+
     return {
         "predicted_class": predicted_class,
         "confidence": confidence,
         "scores": scores,
+    }
+
+
+@app.get("/history")
+def history(limit: int = Query(default=20, ge=1, le=100)):
+    """Return recent successful predictions, newest first."""
+    return {"predictions": database.get_recent_predictions(limit)}
+
+
+@app.get("/analytics")
+def analytics():
+    """Return prediction counts for every waste class."""
+    stored_counts = database.get_prediction_counts()
+    counts = {class_name: stored_counts.get(class_name, 0) for class_name in CLASS_NAMES}
+    return {
+        "total_predictions": sum(counts.values()),
+        "counts": counts,
     }

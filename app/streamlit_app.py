@@ -10,6 +10,8 @@ import streamlit as st
 # Must match the running FastAPI server (see README).
 API_URL = "http://127.0.0.1:8000"
 PREDICT_URL = f"{API_URL}/predict"
+HISTORY_URL = f"{API_URL}/history"
+ANALYTICS_URL = f"{API_URL}/analytics"
 
 st.set_page_config(page_title="EcoSort AI", layout="centered")
 
@@ -91,3 +93,48 @@ else:
                         st.subheader("Scores for all classes")
                         for class_name, score in scores.items():
                             st.write(f"- {class_name}: {score:.2%}")
+
+st.divider()
+st.header("Prediction history")
+
+try:
+    history_response = requests.get(HISTORY_URL, params={"limit": 10}, timeout=10)
+    analytics_response = requests.get(ANALYTICS_URL, timeout=10)
+except requests.exceptions.ConnectionError:
+    st.info("Start the FastAPI server to view prediction history and analytics.")
+except requests.exceptions.Timeout:
+    st.error("The API took too long to load prediction history.")
+except requests.exceptions.RequestException as error:
+    st.error(f"Could not load prediction history: {error}")
+else:
+    if history_response.status_code != 200 or analytics_response.status_code != 200:
+        st.error("The API could not load prediction history and analytics.")
+    else:
+        try:
+            predictions = history_response.json()["predictions"]
+            counts = analytics_response.json()["counts"]
+            if not isinstance(predictions, list) or not isinstance(counts, dict):
+                raise ValueError
+            history_rows = [
+                {
+                    "Timestamp": item["timestamp"],
+                    "Filename": item["filename"],
+                    "Predicted class": item["predicted_class"],
+                    "Confidence": f"{float(item['confidence']):.2%}",
+                }
+                for item in predictions
+            ]
+            chart_data = {
+                "Waste class": list(counts.keys()),
+                "Predictions": [int(count) for count in counts.values()],
+            }
+        except (ValueError, KeyError, TypeError):
+            st.error("The API returned unexpected history or analytics data.")
+        else:
+            if predictions:
+                st.dataframe(history_rows, use_container_width=True, hide_index=True)
+            else:
+                st.info("No successful predictions have been saved yet.")
+
+            st.subheader("Prediction counts by class")
+            st.bar_chart(chart_data, x="Waste class", y="Predictions")

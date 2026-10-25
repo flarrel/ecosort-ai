@@ -2,7 +2,7 @@
 
 A small university / portfolio project for **waste image classification**.
 
-This repository currently covers **Milestone 4**: train a MobileNetV2 baseline on TrashNet, serve predictions with FastAPI, and classify images from a simple Streamlit UI.
+This repository currently covers **Milestone 5**: train a MobileNetV2 baseline on TrashNet, serve and store predictions with FastAPI and SQLite, and view results in a simple Streamlit UI.
 
 ## Requirements
 
@@ -81,6 +81,8 @@ The API starts at http://127.0.0.1:8000 . Interactive docs: http://127.0.0.1:800
 
 - `GET /health` — liveness check
 - `POST /predict` — upload an image field named `file`
+- `GET /history?limit=20` — recent successful predictions, newest first
+- `GET /analytics` — prediction totals grouped by waste class
 
 Example:
 
@@ -99,9 +101,11 @@ Keep the FastAPI server running in one terminal, then start the UI in a second t
 streamlit run app/streamlit_app.py
 ```
 
-Open http://localhost:8501 in your browser. Upload a JPG/JPEG/PNG waste photo and click **Classify image**. The Streamlit app does not run the model itself; it sends the file to `POST /predict` and shows `predicted_class`, `confidence`, and the six class `scores`.
+Open http://localhost:8501 in your browser. Upload a JPG/JPEG/PNG waste photo and click **Classify image**. The Streamlit app does not run the model itself; it sends the file to `POST /predict` and shows `predicted_class`, `confidence`, and the six class `scores`. It also shows recent successful predictions and a chart of prediction counts by class.
 
 If the backend is not running, the UI will show an error instead of crashing.
+
+Successful predictions are stored automatically in `data/ecosort.db`. This runtime database is created when the API starts and is ignored by Git.
 
 ## Tests
 

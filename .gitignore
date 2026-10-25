@@ -33,6 +33,9 @@ data/raw/**
 data/processed/**
 !data/processed/.gitkeep
 
+# Runtime database
+data/ecosort.db
+
 # Trained models and checkpoints
 *.h5
 *.keras

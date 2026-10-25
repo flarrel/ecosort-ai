@@ -31,7 +31,7 @@ TrashNet image dataset
 → MobileNetV2 transfer-learning classifier  
 → FastAPI inference backend  
 → Streamlit frontend  
-→ SQLite prediction history and simple analytics later
+→ SQLite prediction history and simple analytics
 
 The Streamlit frontend must call the FastAPI backend.
 
@@ -136,20 +136,25 @@ The Streamlit frontend has been manually tested successfully.
 
 ---
 
-## Remaining Roadmap
-
-### Milestone 5 — NEXT
+### Milestone 5 — COMPLETE
 SQLite prediction history and simple analytics.
 
-Expected direction:
-- store prediction records
-- timestamp
-- predicted class
-- confidence
-- simple historical summaries
-- lightweight analytics only
+Implemented:
+- automatic SQLite database creation using Python's built-in `sqlite3`
+- successful prediction history with timestamp, filename, predicted class, and confidence
+- recent prediction history API endpoint
+- prediction counts by waste class API endpoint
+- Streamlit history table and class-count chart
+- temporary test databases that do not affect runtime data
+- runtime database excluded from Git
 
-### Milestone 6
+Milestone 5 has been manually tested successfully.
+
+---
+
+## Remaining Roadmap
+
+### Milestone 6 — NEXT
 Testing and integration cleanup.
 
 ### Milestone 7
