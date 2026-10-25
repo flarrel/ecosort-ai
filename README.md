@@ -2,7 +2,7 @@
 
 A small university / portfolio project for **waste image classification**.
 
-This repository currently covers **Milestone 3**: train a MobileNetV2 baseline on TrashNet and serve predictions through a small FastAPI app. UI and deployment come later.
+This repository currently covers **Milestone 4**: train a MobileNetV2 baseline on TrashNet, serve predictions with FastAPI, and classify images from a simple Streamlit UI.
 
 ## Requirements
 
@@ -90,6 +90,18 @@ curl -X POST http://127.0.0.1:8000/predict \
 ```
 
 The JSON response includes `predicted_class`, `confidence`, and `scores` for all six classes (`cardboard`, `glass`, `metal`, `paper`, `plastic`, `trash`) in the same order used during training.
+
+## Streamlit frontend
+
+Keep the FastAPI server running in one terminal, then start the UI in a second terminal (project root, virtual environment activated):
+
+```bash
+streamlit run app/streamlit_app.py
+```
+
+Open http://localhost:8501 in your browser. Upload a JPG/JPEG/PNG waste photo and click **Classify image**. The Streamlit app does not run the model itself; it sends the file to `POST /predict` and shows `predicted_class`, `confidence`, and the six class `scores`.
+
+If the backend is not running, the UI will show an error instead of crashing.
 
 ## Tests
 
