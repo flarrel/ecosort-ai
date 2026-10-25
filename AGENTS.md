@@ -167,12 +167,26 @@ Milestone 6 has been manually tested successfully.
 
 ---
 
-## Remaining Roadmap
-
-### Milestone 7 — NEXT
+### Milestone 7 — COMPLETE
 Docker/containerization.
 
-### Milestone 8
+Implemented:
+- separate FastAPI and Streamlit Dockerfiles
+- Docker Compose setup for both services
+- internal Streamlit-to-FastAPI communication through the `api` service name
+- read-only model bind mount for FastAPI inference
+- persistent named volume for SQLite prediction history
+- runtime-specific container dependencies
+- Docker build-context exclusions for datasets, caches, tests, and local artifacts
+- concise Docker usage documentation
+
+Milestone 7 has been manually tested successfully.
+
+---
+
+## Remaining Roadmap
+
+### Milestone 8 — NEXT
 README and technical documentation cleanup.
 
 ### Milestone 9

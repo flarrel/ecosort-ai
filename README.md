@@ -107,6 +107,29 @@ If the backend is not running, the UI will show an error instead of crashing.
 
 Successful predictions are stored automatically in `data/ecosort.db`. This runtime database is created when the API starts and is ignored by Git.
 
+## Docker
+
+Make sure the trained model exists at `model/ecosort_baseline.keras`, then build and start the FastAPI and Streamlit containers together:
+
+```bash
+docker compose up --build
+```
+
+Open:
+
+- Streamlit: http://localhost:8501
+- FastAPI documentation: http://localhost:8000/docs
+
+The Streamlit container reaches FastAPI through the internal Docker service name `api`. Prediction history is stored in the named Docker volume `ecosort_data`, so it survives container restarts and `docker compose down`. The raw TrashNet training dataset is excluded from the images because runtime inference does not need it.
+
+Stop both services with:
+
+```bash
+docker compose down
+```
+
+Running `docker compose down -v` also deletes the persisted SQLite history.
+
 ## Tests
 
 ```bash

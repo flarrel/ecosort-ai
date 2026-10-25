@@ -4,11 +4,13 @@ Start the FastAPI backend first, then from the project root:
     streamlit run app/streamlit_app.py
 """
 
+import os
+
 import requests
 import streamlit as st
 
-# Must match the running FastAPI server (see README).
-API_URL = "http://127.0.0.1:8000"
+# Docker Compose sets this to http://api:8000. Local runs use localhost.
+API_URL = os.getenv("ECOSORT_API_URL", "http://127.0.0.1:8000").rstrip("/")
 PREDICT_URL = f"{API_URL}/predict"
 HISTORY_URL = f"{API_URL}/history"
 ANALYTICS_URL = f"{API_URL}/analytics"
