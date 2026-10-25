@@ -49,6 +49,7 @@ saved_model/
 checkpoints/
 model/*.h5
 model/*.keras
+!model/ecosort_baseline.keras
 
 # IDE / editor
 .idea/
