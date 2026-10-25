@@ -13,7 +13,7 @@ __pycache__/
 htmlcov/
 
 data/
-model/
+model/*
 notebooks/
 tests/
 
@@ -21,3 +21,4 @@ tests/
 *.db
 *.keras
 *.h5
+!model/ecosort_baseline.keras

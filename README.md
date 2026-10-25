@@ -75,7 +75,7 @@ The included notebook trains for five epochs, evaluates with accuracy/loss plots
 model/ecosort_baseline.keras
 ```
 
-The model file is intentionally ignored by Git. Run the notebook to create it before starting inference if it is not already available locally.
+The trained model is stored at this path so the deployment image can include it. Run the notebook again if the artifact needs to be regenerated.
 
 ## Project structure
 
@@ -90,7 +90,7 @@ ecosort-ai/
 │   ├── raw/                 # Local TrashNet dataset (Git-ignored)
 │   └── ecosort.db           # Local runtime database (Git-ignored)
 ├── model/
-│   └── ecosort_baseline.keras  # Trained model (Git-ignored)
+│   └── ecosort_baseline.keras  # Trained inference model
 ├── notebooks/
 │   └── 01_baseline.ipynb    # Training and evaluation workflow
 ├── tests/
@@ -169,20 +169,17 @@ To also delete the persisted Docker SQLite volume:
 docker compose down -v
 ```
 
-## Render deployment
+## SnapDeploy deployment
 
-Render can run the application as two Docker web services from the same repository:
+SnapDeploy uses the root `Dockerfile` to run both required processes in one container. FastAPI listens internally at `http://127.0.0.1:8000`; Streamlit calls that URL over HTTP and is the only process exposed publicly. Streamlit binds to `0.0.0.0` on SnapDeploy's managed `PORT` (default `8080`).
 
-| Service | Dockerfile path | Environment variables |
-| --- | --- | --- |
-| FastAPI | `./Dockerfile.api` | `ECOSORT_MODEL_PATH` only if the model is provided at a non-default path; `ECOSORT_DB_PATH` is optional |
-| Streamlit | `./Dockerfile.streamlit` | `ECOSORT_API_URL` set to the deployed FastAPI service URL |
+The deployment image includes `model/ecosort_baseline.keras`. TensorFlow and the model are loaded only by FastAPI; Streamlit remains a lightweight HTTP client.
 
-Render supplies `PORT`; both Dockerfiles bind to `0.0.0.0` and use local defaults only when `PORT` is absent. Set the FastAPI healthcheck path to `/health`.
+To deploy, connect the repository in SnapDeploy, select the branch containing the model artifact and root `Dockerfile`, leave the detected `PORT` platform-managed, and start the deployment. No application environment variables are required for the default setup.
 
-The trained model is currently ignored by Git and excluded from the Docker build context. A Render build from this repository therefore cannot serve predictions until `model/ecosort_baseline.keras` is made available through an explicitly chosen artifact-delivery method. No model download source is configured in this repository. Without the model, `/health` works but `/predict` returns `503`.
+`ECOSORT_INTERNAL_API_PORT`, `ECOSORT_API_URL`, `ECOSORT_MODEL_PATH`, and `ECOSORT_DB_PATH` remain optional overrides.
 
-Without a paid persistent disk, Render's filesystem is ephemeral. SQLite continues to work at `data/ecosort.db`, but prediction history can be lost whenever the FastAPI service restarts, redeploys, or spins down. Local Docker Compose still persists SQLite in the `ecosort_data` volume.
+Hosted SQLite uses `data/ecosort.db`, but free hosted storage is ephemeral, so prediction history can be lost when the container restarts or is replaced. Local Docker Compose persistence remains unchanged through the `ecosort_data` volume.
 
 ## API endpoints
 
@@ -222,7 +219,7 @@ Tests use a lightweight fake model and a fresh temporary SQLite database. They d
 - Classification is limited to six classes and one image-level label; the app does not detect or separate multiple objects.
 - Confidence scores are model probabilities, not a guarantee that a disposal decision is correct.
 - SQLite is suitable for this local single-application prototype, not a high-concurrency production system.
-- The trained model and dataset are not stored in Git and must be prepared separately.
+- The training dataset is not stored in Git; only the trained inference model is included.
 - The application is not currently deployed and does not include authentication.
 
 ## Future improvements

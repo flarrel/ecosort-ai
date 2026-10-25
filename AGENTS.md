@@ -192,7 +192,7 @@ README and technical documentation cleanup.
 ### Milestone 9 — Deployment
 
 Expected direction:
-- deploy the existing application to Render without adding product features
+- deploy the existing application to SnapDeploy without adding product features
 - configure model access and document SQLite's ephemeral hosted storage
 - verify the API, Streamlit interface, history, and analytics in the deployed environment
 
