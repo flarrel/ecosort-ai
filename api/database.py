@@ -1,10 +1,13 @@
 """Small SQLite persistence layer for prediction history."""
 
+import os
 import sqlite3
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = PROJECT_ROOT / "data" / "ecosort.db"
+DB_PATH = Path(
+    os.getenv("ECOSORT_DB_PATH", PROJECT_ROOT / "data" / "ecosort.db")
+).expanduser()
 
 
 def get_connection() -> sqlite3.Connection:

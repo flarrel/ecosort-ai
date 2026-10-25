@@ -4,6 +4,7 @@ Run from the project root:
     uvicorn api.main:app --reload
 """
 
+import os
 import sqlite3
 from contextlib import asynccontextmanager
 from io import BytesIO
@@ -23,7 +24,12 @@ IMAGE_SIZE = (224, 224)
 
 # Project root is one level above this file (api/main.py).
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-MODEL_PATH = PROJECT_ROOT / "model" / "ecosort_baseline.keras"
+MODEL_PATH = Path(
+    os.getenv(
+        "ECOSORT_MODEL_PATH",
+        PROJECT_ROOT / "model" / "ecosort_baseline.keras",
+    )
+).expanduser()
 
 
 @asynccontextmanager
@@ -52,7 +58,7 @@ def get_model():
                 status_code=503,
                 detail=(
                     f"Trained model not found at {MODEL_PATH}. "
-                    "Run notebooks/01_baseline.ipynb first."
+                    "Set ECOSORT_MODEL_PATH to an available model file."
                 ),
             )
         try:

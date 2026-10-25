@@ -169,6 +169,25 @@ To also delete the persisted Docker SQLite volume:
 docker compose down -v
 ```
 
+## Railway deployment
+
+Create two Railway services from this repository and keep both in the same project:
+
+| Service | Dockerfile configuration | Runtime variables |
+| --- | --- | --- |
+| FastAPI (`api`) | `RAILWAY_DOCKERFILE_PATH=Dockerfile.api` | `ECOSORT_MODEL_PATH=/app/data/ecosort_baseline.keras` and `ECOSORT_DB_PATH=/app/data/ecosort.db` |
+| Streamlit | `RAILWAY_DOCKERFILE_PATH=Dockerfile.streamlit` | `ECOSORT_API_URL=http://${{api.RAILWAY_PRIVATE_DOMAIN}}:${{api.PORT}}` |
+
+Railway supplies `PORT`; both Dockerfiles bind to `0.0.0.0` and use local defaults only when `PORT` is absent. Set the FastAPI healthcheck path to `/health`. Generate a public domain for Streamlit and, if the API documentation should be publicly reachable, for FastAPI as well.
+
+Attach one persistent Railway volume to the `api` service at `/app/data`. SQLite will use `/app/data/ecosort.db`. The trained model is not stored in Git, so upload the existing local artifact to the volume before testing predictions:
+
+```bash
+railway volume files upload model/ecosort_baseline.keras /ecosort_baseline.keras
+```
+
+The uploaded file is then available to FastAPI at `/app/data/ecosort_baseline.keras`. Without this manual upload, `/health` can run but `/predict` returns `503` because the required model is unavailable.
+
 ## API endpoints
 
 | Method | Endpoint | Purpose |
