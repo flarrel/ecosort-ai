@@ -1,6 +1,6 @@
 # EcoSort AI
 
-EcoSort AI is an end-to-end waste image classification application. A user uploads a photo through a Streamlit interface, a FastAPI backend classifies it with a MobileNetV2 model, and successful predictions are stored in SQLite for recent-history and class-count views.
+EcoSort AI is an end-to-end waste image classification application. A user uploads a photo through a Streamlit interface, shared inference code classifies it with a MobileNetV2 model, and successful predictions are stored in SQLite for recent-history and class-count views. Local and Docker runs access that functionality through FastAPI.
 
 The repository contains the complete workflow: dataset preparation, transfer learning, model evaluation, API inference, frontend integration, persistence, testing, and containerization.
 
@@ -12,7 +12,7 @@ Waste images can contain visually similar materials that are difficult to catego
 
 - Classifies JPG, JPEG, and PNG images as cardboard, glass, metal, paper, plastic, or trash.
 - Returns a predicted class, confidence, and scores for all six classes.
-- Keeps model loading and inference inside FastAPI.
+- Reuses one inference implementation across FastAPI and hosted Streamlit.
 - Shows predictions through a simple Streamlit interface.
 - Stores successful predictions in SQLite.
 - Displays recent prediction history and prediction counts by class.
@@ -37,9 +37,11 @@ Waste images can contain visually similar materials that are difficult to catego
 User uploads an image
         ↓
 Streamlit frontend
-        ↓  HTTP POST /predict
-FastAPI backend
-        ↓
+        ├── local/Docker: HTTP → FastAPI
+        └── Community Cloud: direct shared call
+                            ↓
+                 shared inference service
+                            ↓
 MobileNetV2 classifier
         ↓  successful prediction
 SQLite history
@@ -47,7 +49,7 @@ SQLite history
 Frontend result, recent history, and class-count analytics
 ```
 
-Streamlit never loads the model directly. It calls FastAPI for prediction, history, and analytics data. FastAPI validates and preprocesses the image, runs inference, and stores only successful predictions.
+Local and Docker Streamlit runs call FastAPI for prediction, history, and analytics data. On Streamlit Community Cloud, a dedicated entrypoint calls the same shared inference and database layers directly, without starting another server. Both modes use identical preprocessing, model prediction, and persistence code.
 
 ## Dataset
 
@@ -75,7 +77,7 @@ The included notebook trains for five epochs, evaluates with accuracy/loss plots
 model/ecosort_baseline.keras
 ```
 
-The trained model is stored at this path so the deployment image can include it. Run the notebook again if the artifact needs to be regenerated.
+The trained model is tracked at this path so runtime environments can access it. Run the notebook again if the artifact needs to be regenerated.
 
 ## Project structure
 
@@ -83,9 +85,12 @@ The trained model is stored at this path so the deployment image can include it.
 ecosort-ai/
 ├── api/
 │   ├── database.py          # SQLite persistence helpers
-│   └── main.py              # FastAPI app and model inference
+│   ├── inference.py         # Shared preprocessing and model inference
+│   ├── prediction_service.py # Shared prediction and persistence workflow
+│   └── main.py              # FastAPI endpoints
 ├── app/
-│   └── streamlit_app.py     # Streamlit frontend
+│   ├── backend.py           # API-backed and direct frontend adapters
+│   └── streamlit_app.py     # Shared Streamlit interface
 ├── data/
 │   ├── raw/                 # Local TrashNet dataset (Git-ignored)
 │   └── ecosort.db           # Local runtime database (Git-ignored)
@@ -97,15 +102,17 @@ ecosort-ai/
 │   └── test_api.py          # Isolated API and persistence tests
 ├── Dockerfile.api
 ├── Dockerfile.streamlit
+├── community_cloud.py       # Community Cloud direct-mode entrypoint
 ├── docker-compose.yml
 ├── requirements-api.txt     # FastAPI container dependencies
 ├── requirements-streamlit.txt  # Streamlit container dependencies
-└── requirements.txt
+├── requirements.txt
+└── streamlit_app.py         # Local API-backed entrypoint
 ```
 
 ## Local setup (without Docker)
 
-Python 3.10 or 3.11 is recommended for TensorFlow compatibility.
+Use Python 3.12, matching the supported Community Cloud runtime and project dependencies.
 
 ```bash
 python3 -m venv .venv
@@ -137,7 +144,7 @@ Keep FastAPI running and use a second terminal:
 
 ```bash
 source .venv/bin/activate
-streamlit run app/streamlit_app.py
+python -m streamlit run streamlit_app.py
 ```
 
 Open http://localhost:8501 and upload a JPG, JPEG, or PNG image.
@@ -169,17 +176,19 @@ To also delete the persisted Docker SQLite volume:
 docker compose down -v
 ```
 
-## SnapDeploy deployment
+## Streamlit Community Cloud deployment
 
-SnapDeploy uses the root `Dockerfile` to run both required processes in one container. FastAPI listens internally at `http://127.0.0.1:8000`; Streamlit calls that URL over HTTP and is the only process exposed publicly. Streamlit binds to `0.0.0.0` on SnapDeploy's managed `PORT` (default `8080`).
+Community Cloud runs the dedicated entrypoint:
 
-The deployment image includes `model/ecosort_baseline.keras`. TensorFlow and the model are loaded only by FastAPI; Streamlit remains a lightweight HTTP client.
+```text
+community_cloud.py
+```
 
-To deploy, connect the repository in SnapDeploy, select the branch containing the model artifact and root `Dockerfile`, leave the detected `PORT` platform-managed, and start the deployment. No application environment variables are required for the default setup.
+This entrypoint explicitly selects direct mode. It does not start FastAPI or Uvicorn; instead, it calls the same inference, prediction, and SQLite modules used by FastAPI. The tracked `model/ecosort_baseline.keras` artifact and root `requirements.txt` provide the runtime model and dependencies.
 
-`ECOSORT_INTERNAL_API_PORT`, `ECOSORT_API_URL`, `ECOSORT_MODEL_PATH`, and `ECOSORT_DB_PATH` remain optional overrides.
+In Community Cloud, select Python 3.12 and leave the app URL configuration unset. For local direct-mode verification, run `python -m streamlit run community_cloud.py`.
 
-Hosted SQLite uses `data/ecosort.db`, but free hosted storage is ephemeral, so prediction history can be lost when the container restarts or is replaced. Local Docker Compose persistence remains unchanged through the `ecosort_data` volume.
+Hosted SQLite uses `data/ecosort.db`, but Community Cloud storage is ephemeral, so prediction history can be lost when the app restarts or is redeployed. Local Docker Compose persistence remains unchanged through the `ecosort_data` volume.
 
 ## API endpoints
 

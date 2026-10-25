@@ -33,9 +33,11 @@ TrashNet image dataset
 → Streamlit frontend  
 → SQLite prediction history and simple analytics
 
-The Streamlit frontend must call the FastAPI backend.
+Local and Docker Streamlit runs must call the FastAPI backend. The Streamlit
+Community Cloud entrypoint may call the shared inference and database layers
+directly because it cannot rely on a second application server.
 
-Do not duplicate model inference logic inside the frontend.
+Do not duplicate model preprocessing, prediction, or SQLite logic inside the frontend.
 
 ---
 
@@ -192,9 +194,10 @@ README and technical documentation cleanup.
 ### Milestone 9 — Deployment
 
 Expected direction:
-- deploy the existing application to SnapDeploy without adding product features
+- deploy the Streamlit interface to Streamlit Community Cloud without adding product features
+- preserve FastAPI-backed local and Docker workflows while using the shared inference and database layers directly in the hosted entrypoint
 - configure model access and document SQLite's ephemeral hosted storage
-- verify the API, Streamlit interface, history, and analytics in the deployed environment
+- verify predictions, history, and analytics in the deployed environment
 
 ### Milestone 10 — Final release
 

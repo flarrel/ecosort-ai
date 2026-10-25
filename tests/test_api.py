@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from api import database
+from api import database, inference
 import api.main as api_main
 
 
@@ -49,9 +49,11 @@ def test_database_path(tmp_path, monkeypatch):
 @pytest.fixture
 def client(test_database_path):
     """Start the API with a fake model and temporary database."""
-    api_main._model = FakeModel()
+    previous_model = inference._model
+    inference._model = FakeModel()
     with TestClient(api_main.app) as test_client:
         yield test_client
+    inference._model = previous_model
 
 
 def test_health(client):
@@ -108,7 +110,7 @@ def test_predict_rejects_non_image_without_saving_it(client):
 
 
 def test_failed_prediction_is_not_saved(client):
-    api_main._model = FailingModel()
+    inference._model = FailingModel()
 
     response = client.post(
         "/predict",
@@ -121,8 +123,8 @@ def test_failed_prediction_is_not_saved(client):
 
 
 def test_missing_model_returns_clear_error_without_saving(client, tmp_path, monkeypatch):
-    api_main._model = None
-    monkeypatch.setattr(api_main, "MODEL_PATH", tmp_path / "missing.keras")
+    inference._model = None
+    monkeypatch.setattr(inference, "MODEL_PATH", tmp_path / "missing.keras")
 
     response = client.post(
         "/predict",

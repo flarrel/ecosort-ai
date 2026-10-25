@@ -4,32 +4,14 @@ Run from the project root:
     uvicorn api.main:app --reload
 """
 
-import os
 import sqlite3
 from contextlib import asynccontextmanager
-from io import BytesIO
-from pathlib import Path
 
-import numpy as np
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
-from PIL import Image, UnidentifiedImageError
-from tensorflow import keras
 
-from api import database
+from api import database, inference, prediction_service
 
-# Same order as Keras image_dataset_from_directory / train_ds.class_names
-# in notebooks/01_baseline.ipynb (alphabetical folder names).
-CLASS_NAMES = ["cardboard", "glass", "metal", "paper", "plastic", "trash"]
-IMAGE_SIZE = (224, 224)
-
-# Project root is one level above this file (api/main.py).
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-MODEL_PATH = Path(
-    os.getenv(
-        "ECOSORT_MODEL_PATH",
-        PROJECT_ROOT / "model" / "ecosort_baseline.keras",
-    )
-).expanduser()
+CLASS_NAMES = inference.CLASS_NAMES
 
 
 @asynccontextmanager
@@ -45,51 +27,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Filled on first prediction (tests can also set this to a fake model).
-_model = None
-
-
-def get_model():
-    """Load the trained Keras model once, then reuse it."""
-    global _model
-    if _model is None:
-        if not MODEL_PATH.exists():
-            raise HTTPException(
-                status_code=503,
-                detail=(
-                    f"Trained model not found at {MODEL_PATH}. "
-                    "Set ECOSORT_MODEL_PATH to an available model file."
-                ),
-            )
-        try:
-            _model = keras.models.load_model(MODEL_PATH)
-        except Exception as error:
-            raise HTTPException(
-                status_code=503,
-                detail="The trained model could not be loaded.",
-            ) from error
-    return _model
-
-
-def prepare_image(image: Image.Image) -> np.ndarray:
-    """Match the training input that goes into the saved model.
-
-    Training did this:
-      1. RGB images
-      2. resize to 224x224 (Keras bilinear)
-      3. pixel values in the 0–255 range
-      4. MobileNetV2 preprocess_input *inside* the model
-
-    We do steps 1–3 here and leave step 4 to the loaded model so we
-    do not preprocess twice.
-    """
-    image = image.convert("RGB")
-    image = image.resize(IMAGE_SIZE, Image.Resampling.BILINEAR)
-    array = np.asarray(image, dtype=np.float32)
-    batch = np.expand_dims(array, axis=0)
-    return batch
-
-
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -98,59 +35,28 @@ def health():
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     """Classify one uploaded waste image."""
-    contents = await file.read()
-    if not contents:
-        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
-
     try:
-        image = Image.open(BytesIO(contents))
-        image.load()
-    except (UnidentifiedImageError, OSError):
+        return prediction_service.predict_and_save(
+            contents=await file.read(),
+            filename=file.filename or "unknown",
+        )
+    except inference.InvalidImageError as error:
         raise HTTPException(
             status_code=400,
-            detail="File is not a valid image. Please upload a JPEG or PNG.",
-        )
-
-    batch = prepare_image(image)
-    model = get_model()
-    try:
-        predictions = np.asarray(model.predict(batch, verbose=0))
-        if predictions.shape != (1, len(CLASS_NAMES)):
-            raise ValueError("Unexpected model output shape")
-        probabilities = predictions[0]
-        if not np.all(np.isfinite(probabilities)):
-            raise ValueError("Model output contains non-finite values")
-    except Exception as error:
+            detail=str(error),
+        ) from error
+    except inference.ModelUnavailableError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    except inference.PredictionError as error:
         raise HTTPException(
             status_code=500,
-            detail="Prediction failed. Please try again.",
+            detail=str(error),
         ) from error
-
-    predicted_index = int(np.argmax(probabilities))
-    predicted_class = CLASS_NAMES[predicted_index]
-    confidence = round(float(probabilities[predicted_index]), 4)
-    scores = {
-        class_name: round(float(score), 4)
-        for class_name, score in zip(CLASS_NAMES, probabilities)
-    }
-
-    try:
-        database.save_prediction(
-            filename=file.filename or "unknown",
-            predicted_class=predicted_class,
-            confidence=confidence,
-        )
     except sqlite3.Error as error:
         raise HTTPException(
             status_code=503,
             detail="Prediction succeeded, but it could not be saved.",
         ) from error
-
-    return {
-        "predicted_class": predicted_class,
-        "confidence": confidence,
-        "scores": scores,
-    }
 
 
 @app.get("/history")
