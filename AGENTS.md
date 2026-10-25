@@ -186,20 +186,26 @@ Milestone 7 has been manually tested successfully.
 
 ---
 
+### Milestone 9 — COMPLETE
+Streamlit Community Cloud deployment.
+
+Implemented:
+- dedicated root entrypoints for normal API-backed Streamlit mode and Community Cloud direct mode
+- shared model preprocessing, inference, and prediction persistence used by FastAPI and direct Streamlit mode
+- one model load per process
+- tracked runtime model artifact and Python 3.12-compatible root dependencies
+- ephemeral hosted SQLite behavior while preserving local Docker volume persistence
+- existing FastAPI endpoints, local workflow, and two-service Docker Compose workflow
+- automated coverage for shared inference, backend-mode selection, and direct-mode persistence
+
+Milestone 9 has been manually tested successfully on Streamlit Community Cloud.
+
+---
+
 ## Remaining Roadmap
 
-### Milestone 8 — NEXT
-README and technical documentation cleanup.
-
-### Milestone 9 — Deployment
-
-Expected direction:
-- deploy the Streamlit interface to Streamlit Community Cloud without adding product features
-- preserve FastAPI-backed local and Docker workflows while using the shared inference and database layers directly in the hosted entrypoint
-- configure model access and document SQLite's ephemeral hosted storage
-- verify predictions, history, and analytics in the deployed environment
-
-### Milestone 10 — Final release
+### Milestone 10 — NEXT
+Final release.
 
 Expected direction:
 - run final automated and manual validation
