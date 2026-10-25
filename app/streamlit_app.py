@@ -13,6 +13,19 @@ PREDICT_URL = f"{API_URL}/predict"
 HISTORY_URL = f"{API_URL}/history"
 ANALYTICS_URL = f"{API_URL}/analytics"
 
+
+def api_error_detail(response):
+    """Return a readable API error without displaying raw server output."""
+    try:
+        error_body = response.json()
+    except ValueError:
+        return "Unexpected API error"
+
+    if isinstance(error_body, dict) and isinstance(error_body.get("detail"), str):
+        return error_body["detail"]
+    return "Unexpected API error"
+
+
 st.set_page_config(page_title="EcoSort AI", layout="centered")
 
 st.title("EcoSort AI")
@@ -54,19 +67,11 @@ else:
                 )
             except requests.exceptions.Timeout:
                 st.error("The API took too long to respond. Please try again.")
-            except requests.exceptions.RequestException as error:
-                st.error(f"Could not reach the API: {error}")
+            except requests.exceptions.RequestException:
+                st.error("Could not reach the API. Please try again.")
             else:
                 if response.status_code != 200:
-                    try:
-                        error_body = response.json()
-                    except ValueError:
-                        detail = response.text or "Unknown error"
-                    else:
-                        if isinstance(error_body, dict):
-                            detail = error_body.get("detail", response.text)
-                        else:
-                            detail = response.text or "Unknown error"
+                    detail = api_error_detail(response)
                     st.error(
                         f"The API returned an error ({response.status_code}): {detail}"
                     )
@@ -104,8 +109,8 @@ except requests.exceptions.ConnectionError:
     st.info("Start the FastAPI server to view prediction history and analytics.")
 except requests.exceptions.Timeout:
     st.error("The API took too long to load prediction history.")
-except requests.exceptions.RequestException as error:
-    st.error(f"Could not load prediction history: {error}")
+except requests.exceptions.RequestException:
+    st.error("Could not load prediction history. Please try again.")
 else:
     if history_response.status_code != 200 or analytics_response.status_code != 200:
         st.error("The API could not load prediction history and analytics.")

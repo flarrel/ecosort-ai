@@ -152,12 +152,24 @@ Milestone 5 has been manually tested successfully.
 
 ---
 
-## Remaining Roadmap
-
-### Milestone 6 — NEXT
+### Milestone 6 — COMPLETE
 Testing and integration cleanup.
 
-### Milestone 7
+Implemented:
+- expanded API tests for health, prediction, persistence, history, and analytics
+- deterministic tests using a fake model and temporary SQLite databases
+- coverage ensuring invalid and failed predictions are not stored
+- clear HTTP errors for model, inference, and database failures
+- safer, readable Streamlit error messages without raw server output
+- model output validation and integration cleanup
+
+Milestone 6 has been manually tested successfully.
+
+---
+
+## Remaining Roadmap
+
+### Milestone 7 — NEXT
 Docker/containerization.
 
 ### Milestone 8

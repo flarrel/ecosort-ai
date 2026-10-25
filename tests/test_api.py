@@ -1,5 +1,6 @@
 """Checks for prediction, history, and analytics API behavior."""
 
+import sqlite3
 from io import BytesIO
 
 import numpy as np
@@ -38,9 +39,16 @@ class FailingModel:
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
-    """Use a fresh temporary SQLite database for every test."""
-    monkeypatch.setattr(database, "DB_PATH", tmp_path / "test_ecosort.db")
+def test_database_path(tmp_path, monkeypatch):
+    """Point the database module at a disposable test location."""
+    path = tmp_path / "test_ecosort.db"
+    monkeypatch.setattr(database, "DB_PATH", path)
+    return path
+
+
+@pytest.fixture
+def client(test_database_path):
+    """Start the API with a fake model and temporary database."""
     api_main._model = FakeModel()
     with TestClient(api_main.app) as test_client:
         yield test_client
@@ -50,6 +58,12 @@ def test_health(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_database_is_created_in_temporary_directory(client, test_database_path):
+    assert database.DB_PATH == test_database_path
+    assert test_database_path.exists()
+    assert test_database_path.name == "test_ecosort.db"
 
 
 def test_predict_returns_class_and_scores(client):
@@ -96,13 +110,72 @@ def test_predict_rejects_non_image_without_saving_it(client):
 def test_failed_prediction_is_not_saved(client):
     api_main._model = FailingModel()
 
-    with pytest.raises(RuntimeError, match="Inference failed"):
-        client.post(
-            "/predict",
-            files={"file": ("sample.png", _png_bytes(), "image/png")},
-        )
+    response = client.post(
+        "/predict",
+        files={"file": ("sample.png", _png_bytes(), "image/png")},
+    )
 
+    assert response.status_code == 500
+    assert response.json()["detail"] == "Prediction failed. Please try again."
     assert client.get("/history").json() == {"predictions": []}
+
+
+def test_missing_model_returns_clear_error_without_saving(client, tmp_path, monkeypatch):
+    api_main._model = None
+    monkeypatch.setattr(api_main, "MODEL_PATH", tmp_path / "missing.keras")
+
+    response = client.post(
+        "/predict",
+        files={"file": ("sample.png", _png_bytes(), "image/png")},
+    )
+
+    assert response.status_code == 503
+    assert "Trained model not found" in response.json()["detail"]
+    assert client.get("/history").json() == {"predictions": []}
+
+
+def test_database_failure_returns_clear_error(client, monkeypatch):
+    def fail_to_save(*args, **kwargs):
+        raise sqlite3.OperationalError("database is unavailable")
+
+    monkeypatch.setattr(database, "save_prediction", fail_to_save)
+    response = client.post(
+        "/predict",
+        files={"file": ("sample.png", _png_bytes(), "image/png")},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == (
+        "Prediction succeeded, but it could not be saved."
+    )
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "database_function", "expected_detail"),
+    [
+        (
+            "/history",
+            "get_recent_predictions",
+            "Prediction history is temporarily unavailable.",
+        ),
+        (
+            "/analytics",
+            "get_prediction_counts",
+            "Prediction analytics are temporarily unavailable.",
+        ),
+    ],
+)
+def test_read_endpoints_return_clear_database_errors(
+    client, monkeypatch, endpoint, database_function, expected_detail
+):
+    def fail_to_read(*args, **kwargs):
+        raise sqlite3.OperationalError("database is unavailable")
+
+    monkeypatch.setattr(database, database_function, fail_to_read)
+    response = client.get(endpoint)
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == expected_detail
 
 
 def test_history_is_recent_first_and_respects_limit(client):

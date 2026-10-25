@@ -4,6 +4,7 @@ Run from the project root:
     uvicorn api.main:app --reload
 """
 
+import sqlite3
 from contextlib import asynccontextmanager
 from io import BytesIO
 from pathlib import Path
@@ -54,7 +55,13 @@ def get_model():
                     "Run notebooks/01_baseline.ipynb first."
                 ),
             )
-        _model = keras.models.load_model(MODEL_PATH)
+        try:
+            _model = keras.models.load_model(MODEL_PATH)
+        except Exception as error:
+            raise HTTPException(
+                status_code=503,
+                detail="The trained model could not be loaded.",
+            ) from error
     return _model
 
 
@@ -100,7 +107,18 @@ async def predict(file: UploadFile = File(...)):
 
     batch = prepare_image(image)
     model = get_model()
-    probabilities = model.predict(batch, verbose=0)[0]
+    try:
+        predictions = np.asarray(model.predict(batch, verbose=0))
+        if predictions.shape != (1, len(CLASS_NAMES)):
+            raise ValueError("Unexpected model output shape")
+        probabilities = predictions[0]
+        if not np.all(np.isfinite(probabilities)):
+            raise ValueError("Model output contains non-finite values")
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail="Prediction failed. Please try again.",
+        ) from error
 
     predicted_index = int(np.argmax(probabilities))
     predicted_class = CLASS_NAMES[predicted_index]
@@ -110,11 +128,17 @@ async def predict(file: UploadFile = File(...)):
         for class_name, score in zip(CLASS_NAMES, probabilities)
     }
 
-    database.save_prediction(
-        filename=file.filename or "unknown",
-        predicted_class=predicted_class,
-        confidence=confidence,
-    )
+    try:
+        database.save_prediction(
+            filename=file.filename or "unknown",
+            predicted_class=predicted_class,
+            confidence=confidence,
+        )
+    except sqlite3.Error as error:
+        raise HTTPException(
+            status_code=503,
+            detail="Prediction succeeded, but it could not be saved.",
+        ) from error
 
     return {
         "predicted_class": predicted_class,
@@ -126,13 +150,26 @@ async def predict(file: UploadFile = File(...)):
 @app.get("/history")
 def history(limit: int = Query(default=20, ge=1, le=100)):
     """Return recent successful predictions, newest first."""
-    return {"predictions": database.get_recent_predictions(limit)}
+    try:
+        predictions = database.get_recent_predictions(limit)
+    except sqlite3.Error as error:
+        raise HTTPException(
+            status_code=503,
+            detail="Prediction history is temporarily unavailable.",
+        ) from error
+    return {"predictions": predictions}
 
 
 @app.get("/analytics")
 def analytics():
     """Return prediction counts for every waste class."""
-    stored_counts = database.get_prediction_counts()
+    try:
+        stored_counts = database.get_prediction_counts()
+    except sqlite3.Error as error:
+        raise HTTPException(
+            status_code=503,
+            detail="Prediction analytics are temporarily unavailable.",
+        ) from error
     counts = {class_name: stored_counts.get(class_name, 0) for class_name in CLASS_NAMES}
     return {
         "total_predictions": sum(counts.values()),
