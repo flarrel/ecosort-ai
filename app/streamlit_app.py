@@ -1,4 +1,4 @@
-"""EcoSort AI Streamlit frontend (Milestone 4).
+"""EcoSort AI Streamlit frontend.
 
 Start the FastAPI backend first, then from the project root:
     streamlit run app/streamlit_app.py

@@ -2,24 +2,24 @@
 
 ## Project Purpose
 
-EcoSort AI is a small university and portfolio project for waste image classification.
+EcoSort AI is a waste image classification application built around the TrashNet dataset and a MobileNetV2 transfer-learning model.
 
-The goal is to build the simplest coherent end-to-end AI application that still demonstrates strong hiring signal for AI Engineer, Machine Learning, Data Science, and related internship roles.
+The application provides model inference through FastAPI, an upload and results interface through Streamlit, and SQLite-backed prediction history and analytics.
 
-Do not add features merely to satisfy a checklist if they make the project unnecessarily complex.
+Keep the implementation coherent, reliable, and proportional to the problem it solves.
 
 Favor:
 - simplicity
 - clear architecture
 - beginner-readable code
-- defensible portfolio evidence
+- verifiable behavior
 - features that fit naturally into the project
 
 Avoid:
 - unnecessary abstractions
 - overengineering
 - unrelated technologies
-- adding tools only because they appear in job listings
+- adding tools without a clear technical need
 
 ---
 
@@ -189,11 +189,20 @@ Milestone 7 has been manually tested successfully.
 ### Milestone 8 — NEXT
 README and technical documentation cleanup.
 
-### Milestone 9
-Deployment / live demo.
+### Milestone 9 — Deployment
 
-### Milestone 10
-University report and presentation/demo preparation.
+Expected direction:
+- deploy the existing application without adding product features
+- configure model access and persistent SQLite storage
+- verify the API, Streamlit interface, history, and analytics in the deployed environment
+
+### Milestone 10 — Final release
+
+Expected direction:
+- run final automated and manual validation
+- verify documentation, commands, model results, and limitations
+- add or refine an architecture visualization only if it improves understanding
+- remove stale files or wording and prepare a clean software release
 
 ---
 
@@ -201,7 +210,7 @@ University report and presentation/demo preparation.
 
 LLM, RAG, LangChain, LlamaIndex, or similar features are optional.
 
-Do not add them solely to satisfy portfolio criteria.
+Do not add them without a clear technical need.
 
 They should only be added if:
 - they remain simple,
@@ -255,24 +264,15 @@ Do not refactor working code merely to make it more sophisticated.
 
 ---
 
-## Portfolio Philosophy
+## Project-facing Documentation
 
-This project is part of a larger portfolio.
+Describe EcoSort AI in terms of the software itself: its technical purpose, implementation, behavior, results, architecture, setup, and limitations.
 
-There are five additional planned mini-projects covering:
-- Machine Learning
-- Computer Vision
-- Natural Language Processing
-- Speech Recognition
-- Deep Learning
+Project-facing files must not discuss university, coursework, assessments, lecturers, rubrics, portfolios, recruiting, employment, job searches, Sustainable Development Goals, academic reports or presentations, or any other external motivation for creating the project.
 
-Therefore, EcoSort does not need to demonstrate every possible hiring criterion.
+Do not replace that framing with labels such as personal project or passion project, and do not invent commercial motivation, users, adoption, impact, or business claims.
 
-If a missing skill does not fit EcoSort naturally, leave it for a future project.
-
-The goal is not maximum checklist coverage per project.
-
-The goal is maximum hiring signal per unit of effort across the portfolio.
+Keep documentation concise and proportional to the project. Include only material that helps someone understand, run, validate, or maintain the software.
 
 ---
 

@@ -1,137 +1,224 @@
 # EcoSort AI
 
-A small university / portfolio project for **waste image classification**.
+EcoSort AI is an end-to-end waste image classification application. A user uploads a photo through a Streamlit interface, a FastAPI backend classifies it with a MobileNetV2 model, and successful predictions are stored in SQLite for recent-history and class-count views.
 
-This repository currently covers **Milestone 5**: train a MobileNetV2 baseline on TrashNet, serve and store predictions with FastAPI and SQLite, and view results in a simple Streamlit UI.
+The repository contains the complete workflow: dataset preparation, transfer learning, model evaluation, API inference, frontend integration, persistence, testing, and containerization.
 
-## Requirements
+## Problem
 
-- macOS
-- Python 3.10 or 3.11 (recommended for TensorFlow)
+Waste images can contain visually similar materials that are difficult to categorize consistently. EcoSort accepts one image and predicts one of six TrashNet classes while exposing the model's confidence and all class scores. It is an image-classification tool, not a replacement for local disposal guidance or an industrial sorting system.
 
-## Setup
+## Main features
 
-From the project root:
+- Classifies JPG, JPEG, and PNG images as cardboard, glass, metal, paper, plastic, or trash.
+- Returns a predicted class, confidence, and scores for all six classes.
+- Keeps model loading and inference inside FastAPI.
+- Shows predictions through a simple Streamlit interface.
+- Stores successful predictions in SQLite.
+- Displays recent prediction history and prediction counts by class.
+- Handles invalid uploads, unavailable services, and inference/database errors.
+- Includes isolated API tests and a two-service Docker Compose setup.
+
+## Tech stack
+
+| Area | Technology |
+| --- | --- |
+| Model training and inference | TensorFlow/Keras, MobileNetV2, NumPy, Pillow |
+| Backend API | FastAPI, Uvicorn |
+| Frontend | Streamlit, Requests |
+| Persistence | Python `sqlite3`, SQLite |
+| Evaluation and development | scikit-learn, Matplotlib, pandas, Jupyter |
+| Testing | pytest, FastAPI TestClient |
+| Containers | Docker, Docker Compose |
+
+## Architecture
+
+```text
+User uploads an image
+        ↓
+Streamlit frontend
+        ↓  HTTP POST /predict
+FastAPI backend
+        ↓
+MobileNetV2 classifier
+        ↓  successful prediction
+SQLite history
+        ↓
+Frontend result, recent history, and class-count analytics
+```
+
+Streamlit never loads the model directly. It calls FastAPI for prediction, history, and analytics data. FastAPI validates and preprocesses the image, runs inference, and stores only successful predictions.
+
+## Dataset
+
+The training notebook uses the TrashNet dataset: 2,527 images across six folders/classes:
+
+```text
+data/raw/
+├── cardboard/
+├── glass/
+├── metal/
+├── paper/
+├── plastic/
+└── trash/
+```
+
+Images are loaded at 224×224 with an 80/20 training-validation split. Dataset files under `data/raw/` are intentionally excluded from Git and are not needed for runtime inference.
+
+## Model
+
+The baseline is MobileNetV2 pretrained on ImageNet with its feature extractor frozen. The notebook adds global average pooling, dropout, and a six-class softmax output layer. MobileNetV2 preprocessing is included inside the saved model, preventing duplicate preprocessing in the API.
+
+The included notebook trains for five epochs, evaluates with accuracy/loss plots, a confusion matrix, and a classification report, and achieved approximately **83.8% validation accuracy** in the recorded baseline run. It saves the trained model to:
+
+```text
+model/ecosort_baseline.keras
+```
+
+The model file is intentionally ignored by Git. Run the notebook to create it before starting inference if it is not already available locally.
+
+## Project structure
+
+```text
+ecosort-ai/
+├── api/
+│   ├── database.py          # SQLite persistence helpers
+│   └── main.py              # FastAPI app and model inference
+├── app/
+│   └── streamlit_app.py     # Streamlit frontend
+├── data/
+│   ├── raw/                 # Local TrashNet dataset (Git-ignored)
+│   └── ecosort.db           # Local runtime database (Git-ignored)
+├── model/
+│   └── ecosort_baseline.keras  # Trained model (Git-ignored)
+├── notebooks/
+│   └── 01_baseline.ipynb    # Training and evaluation workflow
+├── tests/
+│   └── test_api.py          # Isolated API and persistence tests
+├── Dockerfile.api
+├── Dockerfile.streamlit
+├── docker-compose.yml
+├── requirements-api.txt     # FastAPI container dependencies
+├── requirements-streamlit.txt  # Streamlit container dependencies
+└── requirements.txt
+```
+
+## Local setup (without Docker)
+
+Python 3.10 or 3.11 is recommended for TensorFlow compatibility.
 
 ```bash
-# 1. Create a virtual environment
 python3 -m venv .venv
-
-# 2. Activate it (macOS / zsh)
 source .venv/bin/activate
-
-# 3. Upgrade pip, then install packages
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-To leave the environment later:
-
-```bash
-deactivate
-```
-
-## Dataset location
-
-Put your images under `data/raw/`, **one folder per class**. Keras will treat each folder name as a class label.
-
-TrashNet uses these 6 class folders:
-
-```text
-data/raw/
-  cardboard/
-  glass/
-  metal/
-  paper/
-  plastic/
-  trash/
-```
-
-Do **not** put images directly in `data/raw/` (they must sit inside class folders).
-
-`data/processed/` is reserved for later cleaning or exported datasets. You can leave it empty for now.
-
-## Baseline notebook
-
-With the virtual environment activated:
+If the trained model is missing, place TrashNet in the class folders shown above and run:
 
 ```bash
 jupyter notebook notebooks/01_baseline.ipynb
 ```
 
-The notebook:
+### Run FastAPI
 
-- loads images from `data/raw/` and resizes them to 224×224
-- splits them into training and validation sets
-- trains a frozen **MobileNetV2** (ImageNet) model with a small 6-class head
-- plots accuracy/loss, prints a confusion matrix and classification report
-- saves the model to `model/ecosort_baseline.keras`
-
-First-time training will download ImageNet weights for MobileNetV2 (needs internet). A few epochs is enough for a baseline; expect several minutes on a Mac.
-
-## Inference API
-
-Train and save the model first (`model/ecosort_baseline.keras`). Then, from the project root with the virtual environment activated:
+From the project root with the virtual environment activated:
 
 ```bash
 uvicorn api.main:app --reload
 ```
 
-The API starts at http://127.0.0.1:8000 . Interactive docs: http://127.0.0.1:8000/docs
+- API base URL: http://127.0.0.1:8000
+- Interactive API documentation: http://127.0.0.1:8000/docs
 
-- `GET /health` — liveness check
-- `POST /predict` — upload an image field named `file`
-- `GET /history?limit=20` — recent successful predictions, newest first
-- `GET /analytics` — prediction totals grouped by waste class
+### Run Streamlit
 
-Example:
+Keep FastAPI running and use a second terminal:
+
+```bash
+source .venv/bin/activate
+streamlit run app/streamlit_app.py
+```
+
+Open http://localhost:8501 and upload a JPG, JPEG, or PNG image.
+
+## Docker setup
+
+Docker requires the trained model at `model/ecosort_baseline.keras`. The raw training dataset is not copied into either image.
+
+Build and start FastAPI and Streamlit together:
+
+```bash
+docker compose up --build
+```
+
+- Streamlit: http://localhost:8501
+- FastAPI documentation: http://localhost:8000/docs
+
+Inside Docker, Streamlit uses `http://api:8000`, where `api` is the Compose service name. The model directory is mounted read-only into FastAPI.
+
+Stop the services while preserving prediction history:
+
+```bash
+docker compose down
+```
+
+To also delete the persisted Docker SQLite volume:
+
+```bash
+docker compose down -v
+```
+
+## API endpoints
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/health` | Check whether the API is running. |
+| `POST` | `/predict` | Upload one image in a multipart field named `file`. |
+| `GET` | `/history?limit=20` | Return recent successful predictions, newest first. `limit` accepts 1–100. |
+| `GET` | `/analytics` | Return total predictions and counts for all six classes. |
+
+Example prediction request:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/predict \
   -F "file=@/path/to/waste_image.jpg"
 ```
 
-The JSON response includes `predicted_class`, `confidence`, and `scores` for all six classes (`cardboard`, `glass`, `metal`, `paper`, `plastic`, `trash`) in the same order used during training.
+## SQLite persistence
 
-## Streamlit frontend
+On a local run, the API automatically creates `data/ecosort.db`. Each successful prediction stores an ID, UTC timestamp, uploaded filename, predicted class, and confidence. Invalid uploads and failed predictions are not stored.
 
-Keep the FastAPI server running in one terminal, then start the UI in a second terminal (project root, virtual environment activated):
+With Docker Compose, `/app/data` uses the named volume `ecosort_data`, so history survives container recreation and `docker compose down` unless the volume is explicitly removed with `-v`.
 
-```bash
-streamlit run app/streamlit_app.py
-```
+## Testing
 
-Open http://localhost:8501 in your browser. Upload a JPG/JPEG/PNG waste photo and click **Classify image**. The Streamlit app does not run the model itself; it sends the file to `POST /predict` and shows `predicted_class`, `confidence`, and the six class `scores`. It also shows recent successful predictions and a chart of prediction counts by class.
-
-If the backend is not running, the UI will show an error instead of crashing.
-
-Successful predictions are stored automatically in `data/ecosort.db`. This runtime database is created when the API starts and is ignored by Git.
-
-## Docker
-
-Make sure the trained model exists at `model/ecosort_baseline.keras`, then build and start the FastAPI and Streamlit containers together:
+Run the complete automated test suite from the project root:
 
 ```bash
-docker compose up --build
+pytest
 ```
 
-Open:
+Tests use a lightweight fake model and a fresh temporary SQLite database. They do not require the trained model and do not modify the local runtime database.
 
-- Streamlit: http://localhost:8501
-- FastAPI documentation: http://localhost:8000/docs
+## Known limitations
 
-The Streamlit container reaches FastAPI through the internal Docker service name `api`. Prediction history is stored in the named Docker volume `ecosort_data`, so it survives container restarts and `docker compose down`. The raw TrashNet training dataset is excluded from the images because runtime inference does not need it.
+- The model is trained on a small, controlled dataset and may perform poorly on cluttered backgrounds, unusual lighting, damaged objects, or materials unlike TrashNet.
+- Classification is limited to six classes and one image-level label; the app does not detect or separate multiple objects.
+- Confidence scores are model probabilities, not a guarantee that a disposal decision is correct.
+- SQLite is suitable for this local single-application prototype, not a high-concurrency production system.
+- The trained model and dataset are not stored in Git and must be prepared separately.
+- The application is not currently deployed and does not include authentication.
 
-Stop both services with:
+## Future improvements
 
-```bash
-docker compose down
-```
+- Deploy the existing application with suitable model access and persistent data storage.
+- Evaluate with additional real-world waste images and document failure cases.
+- Improve model quality only where evaluation shows a clear need, for example through careful fine-tuning or better data coverage.
+- Complete final validation, cleanup, documentation verification, and release preparation.
 
-Running `docker compose down -v` also deletes the persisted SQLite history.
+## Current project status
 
-## Tests
+Milestones 1–7 are complete and manually verified: dataset setup, MobileNetV2 training, FastAPI inference, Streamlit UI, SQLite history/analytics, integration testing, and Docker containerization.
 
-```bash
-pytest tests/test_api.py
-```
+Milestone 8—README and technical documentation cleanup—is implemented and awaiting manual verification. Deployment and final release preparation remain future milestones.
