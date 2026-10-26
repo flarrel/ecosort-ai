@@ -4,7 +4,7 @@ EcoSort AI is an end-to-end waste image classification application. A user uploa
 
 The repository contains the complete workflow: dataset preparation, transfer learning, model evaluation, API inference, frontend integration, persistence, testing, and containerization.
 
-## Problem
+## What it does
 
 Waste images can contain visually similar materials that are difficult to categorize consistently. EcoSort accepts one image and predicts one of six TrashNet classes while exposing the model's confidence and all class scores. It is an image-classification tool, not a replacement for local disposal guidance or an industrial sorting system.
 
@@ -33,20 +33,17 @@ Waste images can contain visually similar materials that are difficult to catego
 
 ## Architecture
 
-```text
-User uploads an image
-        ↓
-Streamlit frontend
-        ├── local/Docker: HTTP → FastAPI
-        └── Community Cloud: direct shared call
-                            ↓
-                 shared inference service
-                            ↓
-MobileNetV2 classifier
-        ↓  successful prediction
-SQLite history
-        ↓
-Frontend result, recent history, and class-count analytics
+```mermaid
+flowchart LR
+    User[Image upload] --> UI[Streamlit interface]
+    UI -->|Local or Docker: HTTP| API[FastAPI]
+    UI -->|Community Cloud: direct call| Service[Shared prediction service]
+    API --> Service
+    API -->|History and analytics| DB[(Shared SQLite layer)]
+    UI -->|Community Cloud: history and analytics| DB
+    Service --> Inference[Shared preprocessing and inference]
+    Inference --> Model[MobileNetV2 model]
+    Service -->|Successful predictions only| DB
 ```
 
 Local and Docker Streamlit runs call FastAPI for prediction, history, and analytics data. On Streamlit Community Cloud, a dedicated entrypoint calls the same shared inference and database layers directly, without starting another server. Both modes use identical preprocessing, model prediction, and persistence code.
@@ -86,7 +83,7 @@ ecosort-ai/
 ├── api/
 │   ├── database.py          # SQLite persistence helpers
 │   ├── inference.py         # Shared preprocessing and model inference
-│   ├── prediction_service.py # Shared prediction and persistence workflow
+│   ├── prediction_service.py  # Shared prediction and persistence workflow
 │   └── main.py              # FastAPI endpoints
 ├── app/
 │   ├── backend.py           # API-backed and direct frontend adapters
@@ -99,7 +96,8 @@ ecosort-ai/
 ├── notebooks/
 │   └── 01_baseline.ipynb    # Training and evaluation workflow
 ├── tests/
-│   └── test_api.py          # Isolated API and persistence tests
+│   ├── test_api.py          # Isolated API and persistence tests
+│   └── test_shared_services.py # Shared inference and mode tests
 ├── Dockerfile.api
 ├── Dockerfile.streamlit
 ├── community_cloud.py       # Community Cloud direct-mode entrypoint
@@ -186,7 +184,18 @@ community_cloud.py
 
 This entrypoint explicitly selects direct mode. It does not start FastAPI or Uvicorn; instead, it calls the same inference, prediction, and SQLite modules used by FastAPI. The tracked `model/ecosort_baseline.keras` artifact and root `requirements.txt` provide the runtime model and dependencies.
 
-In Community Cloud, select Python 3.12 and leave the app URL configuration unset. For local direct-mode verification, run `python -m streamlit run community_cloud.py`.
+Deployment settings:
+
+- Repository and branch: the branch containing the tracked model artifact
+- Main file path: `community_cloud.py`
+- Python version: 3.12
+- Secrets: none required
+
+For local direct-mode verification, run:
+
+```bash
+python -m streamlit run community_cloud.py
+```
 
 Hosted SQLite uses `data/ecosort.db`, but Community Cloud storage is ephemeral, so prediction history can be lost when the app restarts or is redeployed. Local Docker Compose persistence remains unchanged through the `ecosort_data` volume.
 
@@ -220,7 +229,7 @@ Run the complete automated test suite from the project root:
 pytest
 ```
 
-Tests use a lightweight fake model and a fresh temporary SQLite database. They do not require the trained model and do not modify the local runtime database.
+Tests use a lightweight fake model and fresh temporary SQLite databases. They cover the API, persistence, shared inference behavior, model caching, and frontend mode selection without modifying the local runtime database.
 
 ## Known limitations
 
@@ -229,17 +238,15 @@ Tests use a lightweight fake model and a fresh temporary SQLite database. They d
 - Confidence scores are model probabilities, not a guarantee that a disposal decision is correct.
 - SQLite is suitable for this local single-application prototype, not a high-concurrency production system.
 - The training dataset is not stored in Git; only the trained inference model is included.
-- The application is not currently deployed and does not include authentication.
+- Community Cloud storage is ephemeral, so hosted history may reset after an app restart or redeployment.
 
 ## Future improvements
 
-- Deploy the existing application with suitable model access and persistent data storage.
 - Evaluate with additional real-world waste images and document failure cases.
 - Improve model quality only where evaluation shows a clear need, for example through careful fine-tuning or better data coverage.
-- Complete final validation, cleanup, documentation verification, and release preparation.
+- Use persistent hosted storage only if prediction history needs to survive Community Cloud restarts.
+- Pin dependency versions if long-term reproducibility becomes necessary.
 
 ## Current project status
 
-Milestones 1–7 are complete and manually verified: dataset setup, MobileNetV2 training, FastAPI inference, Streamlit UI, SQLite history/analytics, integration testing, and Docker containerization.
-
-Milestone 8—README and technical documentation cleanup—is implemented and awaiting manual verification. Deployment and final release preparation remain future milestones.
+Milestones 1–10 are implemented. Local API-backed mode, Docker Compose mode, and Streamlit Community Cloud direct mode share the same prediction and persistence implementation. The Community Cloud deployment has been manually verified; hosted SQLite history remains ephemeral.

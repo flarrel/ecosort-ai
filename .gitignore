@@ -33,8 +33,10 @@ data/raw/**
 data/processed/**
 !data/processed/.gitkeep
 
-# Runtime database
-data/ecosort.db
+# Runtime databases
+*.db
+*.sqlite
+*.sqlite3
 
 # Trained models and checkpoints
 *.h5

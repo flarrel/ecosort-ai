@@ -25,17 +25,17 @@ Avoid:
 
 ## Current Architecture
 
-The intended architecture is:
+Training uses the TrashNet dataset to produce the tracked MobileNetV2 model at
+`model/ecosort_baseline.keras`.
 
-TrashNet image dataset  
-→ MobileNetV2 transfer-learning classifier  
-→ FastAPI inference backend  
-→ Streamlit frontend  
-→ SQLite prediction history and simple analytics
+Runtime modes:
+- local: Streamlit → FastAPI → shared inference and database layers
+- Docker Compose: Streamlit container → FastAPI container → shared inference and database layers
+- Streamlit Community Cloud: Streamlit → shared inference and database layers directly
 
-Local and Docker Streamlit runs must call the FastAPI backend. The Streamlit
-Community Cloud entrypoint may call the shared inference and database layers
-directly because it cannot rely on a second application server.
+Local and Docker Streamlit runs must call the FastAPI backend. The Community
+Cloud entrypoint calls the shared layers directly because it cannot rely on a
+second application server.
 
 Do not duplicate model preprocessing, prediction, or SQLite logic inside the frontend.
 
@@ -186,6 +186,19 @@ Milestone 7 has been manually tested successfully.
 
 ---
 
+### Milestone 8 — COMPLETE
+README and technical documentation cleanup.
+
+Implemented:
+- concise project, architecture, setup, API, testing, persistence, and limitations documentation
+- commands and paths checked against the implementation
+- project-facing wording focused only on the software and its technical behavior
+- stale milestone and deployment wording removed
+
+Milestone 8 documentation was verified during the final release audit.
+
+---
+
 ### Milestone 9 — COMPLETE
 Streamlit Community Cloud deployment.
 
@@ -202,16 +215,28 @@ Milestone 9 has been manually tested successfully on Streamlit Community Cloud.
 
 ---
 
+### Milestone 10 — COMPLETE
+Final release preparation.
+
+Implemented:
+- final repository, documentation, dependency, and ignore-rule audit
+- accurate local, Docker Compose, and Community Cloud architecture documentation
+- concise Mermaid architecture diagram
+- verification of the notebook-backed 83.8% validation result
+- full automated test-suite validation
+- real-model FastAPI and direct-mode prediction validation
+- SQLite history and analytics validation in both runtime paths
+- Docker Compose build, health, and service-to-service communication validation
+- removal of generated cache and notebook-checkpoint directories
+
+Milestone 10 automated validation completed successfully. The final release is
+ready for the user's manual review and commit.
+
+---
+
 ## Remaining Roadmap
 
-### Milestone 10 — NEXT
-Final release.
-
-Expected direction:
-- run final automated and manual validation
-- verify documentation, commands, model results, and limitations
-- add or refine an architecture visualization only if it improves understanding
-- remove stale files or wording and prepare a clean software release
+No additional milestones are currently planned.
 
 ---
 
